@@ -12,11 +12,6 @@ import java.nio.channels.FileChannel
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 
-data class ChunkRange(
-    val start: Long,
-    val end: Long,
-)
-
 class ParallelFileDownloader(
     private val config: DownloadConfig = DownloadConfig(),
 ) {
@@ -137,7 +132,7 @@ class ParallelFileDownloader(
         }
 
         val bytes = response.body()
-        val expectedSize = range.end - range.start + 1
+        val expectedSize = range.size
 
         if (bytes.size.toLong() != expectedSize) {
             throw DownloadException(
