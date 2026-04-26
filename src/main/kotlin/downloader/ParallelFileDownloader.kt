@@ -24,16 +24,18 @@ class ParallelFileDownloader(
         val ranges = createRanges(metadata.contentLength)
 
         prepareOutputFile(outputPath, metadata.contentLength)
-        downloadRangesInParallel(uri, outputPath, ranges)
-
         println("File size: ${metadata.contentLength} bytes")
         println("Chunk size: ${config.chunkSize} bytes")
         println("Chunks: ${ranges.size}")
         println("Parallelism: ${config.parallelism}")
+        println("Max retries: ${config.maxRetries}")
+        downloadRangesInParallel(uri, outputPath, ranges)
+
         println("Downloaded ${metadata.contentLength} bytes to $outputPath")
     }
 
-    private fun fetchMetadata(uri: URI): DownloadMetadata {        val headRequest = HttpRequest.newBuilder(uri)
+    private fun fetchMetadata(uri: URI): DownloadMetadata {
+        val headRequest = HttpRequest.newBuilder(uri)
             .method("HEAD", HttpRequest.BodyPublishers.noBody())
             .build()
 
@@ -102,7 +104,7 @@ class ParallelFileDownloader(
         try {
             val futures = ranges.map { range ->
                 executor.submit {
-                    downloadRange(uri, outputPath, range)
+                    downloadRangeWithRetries(uri, outputPath, range)
                 }
             }
 
@@ -117,6 +119,38 @@ class ParallelFileDownloader(
         } finally {
             executor.shutdown()
         }
+    }
+
+    private fun downloadRangeWithRetries(
+        uri: URI,
+        outputPath: Path,
+        range: ChunkRange,
+    ) {
+        var attempt = 0
+        var lastError: Exception? = null
+
+        while (attempt <= config.maxRetries) {
+            try {
+                downloadRange(uri, outputPath, range)
+                return
+            } catch (e: Exception) {
+                lastError = e
+                attempt++
+
+                if (attempt <= config.maxRetries) {
+                    println(
+                        "Retrying range ${range.start}-${range.end} " +
+                        "after failure: ${e.message} " +
+                        "(attempt $attempt/${config.maxRetries})"
+                    )
+                }
+            }
+        }
+
+        throw DownloadException(
+            "Failed to download range ${range.start}-${range.end} " +
+            "after ${config.maxRetries + 1} attempt(s): ${lastError?.message}"
+        )
     }
 
     private fun downloadRange(
@@ -143,7 +177,7 @@ class ParallelFileDownloader(
         if (bytes.size.toLong() != expectedSize) {
             throw DownloadException(
                 "Invalid chunk size for range ${range.start}-${range.end}: " +
-                        "expected $expectedSize bytes, got ${bytes.size}"
+                "expected $expectedSize bytes, got ${bytes.size}"
             )
         }
 

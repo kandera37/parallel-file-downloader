@@ -18,6 +18,7 @@ fun main(args: Array<String>) {
 
     var chunkSize = 1024L * 1024L
     var parallelism = 4
+    var maxRetries = 3
 
     var index = 2
     while (index < args.size) {
@@ -32,6 +33,11 @@ fun main(args: Array<String>) {
                 index += 2
             }
 
+            "--max-retries" -> {
+                maxRetries = readIntOption(args, index, "--max-retries")
+                index += 2
+            }
+
             else -> {
                 throw DownloadException("Unknown argument: ${args[index]}")
             }
@@ -42,6 +48,7 @@ fun main(args: Array<String>) {
         DownloadConfig(
             chunkSize = chunkSize,
             parallelism = parallelism,
+            maxRetries = maxRetries,
         )
     )
 
@@ -70,14 +77,15 @@ private fun printUsage() {
     println(
         """
         Usage:
-          ./gradlew run --args="<url> <output-path> [--chunk-size bytes] [--parallelism n]"
+          ./gradlew run --args="<url> <output-path> [--chunk-size bytes] [--parallelism n] [--max-retries n]"
 
         Example:
-          ./gradlew run --args="http://localhost:8080/big-file.txt downloaded-big-file.txt --chunk-size 1024 --parallelism 4"
+          ./gradlew run --args="http://localhost:8080/big-file.txt cli-downloaded-big-file.txt --chunk-size 1024 --parallelism 4 --max-retries 3"
 
         Options:
           --chunk-size    Size of each downloaded byte range. Default: 1048576
           --parallelism   Number of parallel download workers. Default: 4
+          --max-retries   Number of retry attempts per failed chunk. Default: 3
         """.trimIndent()
     )
 }
