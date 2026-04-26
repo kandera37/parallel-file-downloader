@@ -44,3 +44,4 @@ bin/
 ### Local downloaded files ###
 downloaded.txt
 downloaded-big-file.txt
+cli-downloaded-big-file.txt

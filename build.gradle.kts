@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "2.3.20"
+    id("application")
 }
 
 group = "org.example"
@@ -17,6 +18,10 @@ dependencies {
 
 kotlin {
     jvmToolchain(17)
+}
+
+application {
+    mainClass.set("downloader.MainKt")
 }
 
 tasks.test {
