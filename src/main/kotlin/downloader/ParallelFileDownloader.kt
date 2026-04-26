@@ -20,17 +20,16 @@ class ParallelFileDownloader(
     fun download(url: String, outputPath: Path) {
         val uri = URI.create(url)
 
-        val contentLength = fetchContentLength(uri)
-        val ranges = createRanges(contentLength)
+        val metadata = fetchMetadata(uri)
+        val ranges = createRanges(metadata.contentLength)
 
-        prepareOutputFile(outputPath, contentLength)
+        prepareOutputFile(outputPath, metadata.contentLength)
         downloadRangesInParallel(uri, outputPath, ranges)
 
-        println("Downloaded $contentLength bytes to $outputPath")
+        println("Downloaded ${metadata.contentLength} bytes to $outputPath")
     }
 
-    private fun fetchContentLength(uri: URI): Long {
-        val headRequest = HttpRequest.newBuilder(uri)
+    private fun fetchMetadata(uri: URI): DownloadMetadata {        val headRequest = HttpRequest.newBuilder(uri)
             .method("HEAD", HttpRequest.BodyPublishers.noBody())
             .build()
 
@@ -54,7 +53,10 @@ class ParallelFileDownloader(
             throw DownloadException("Server does not support byte ranges")
         }
 
-        return contentLength
+        return DownloadMetadata(
+            contentLength = contentLength,
+            acceptRanges = acceptRanges,
+        )
     }
 
     private fun createRanges(contentLength: Long): List<ChunkRange> {
