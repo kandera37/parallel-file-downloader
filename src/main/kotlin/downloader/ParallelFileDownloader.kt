@@ -26,6 +26,10 @@ class ParallelFileDownloader(
         prepareOutputFile(outputPath, metadata.contentLength)
         downloadRangesInParallel(uri, outputPath, ranges)
 
+        println("File size: ${metadata.contentLength} bytes")
+        println("Chunk size: ${config.chunkSize} bytes")
+        println("Chunks: ${ranges.size}")
+        println("Parallelism: ${config.parallelism}")
         println("Downloaded ${metadata.contentLength} bytes to $outputPath")
     }
 
