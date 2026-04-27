@@ -160,16 +160,55 @@ class ParallelFileDownloaderTest {
             Files.deleteIfExists(outputPath)
         }
     }
+
+    @Test
+    fun retriesFailedRangeRequestAndEventuallyDownloadsFile() {
+        val data = ByteArray(20_000) { index ->
+            (index % 256).toByte()
+        }
+
+        RangeTestServer(
+            data = data,
+            failFirstRangeRequest = true,
+        ).use { server ->
+            val outputPath = Files.createTempFile("downloaded-retry", ".bin")
+
+            val downloader = ParallelFileDownloader(
+                DownloadConfig(
+                    chunkSize = 1000,
+                    parallelism = 4,
+                    maxRetries = 2,
+                )
+            )
+
+            downloader.download(server.url(), outputPath)
+
+            val downloaded = Files.readAllBytes(outputPath)
+            assertContentEquals(data, downloaded)
+
+            assert(server.failedRangeRequestCount.get() == 1) {
+                "Expected exactly one simulated failed range request, got ${server.failedRangeRequestCount.get()}"
+            }
+
+            assert(server.rangeRequestCount.get() > 1) {
+                "Expected multiple range requests, got ${server.rangeRequestCount.get()}"
+            }
+
+            Files.deleteIfExists(outputPath)
+        }
+    }
 }
 
 private class RangeTestServer(
     private val data: ByteArray,
     private val supportsRanges: Boolean = true,
     private val includeContentLength: Boolean = true,
+    private val failFirstRangeRequest: Boolean = false,
 ) : AutoCloseable {
     private val server: HttpServer = HttpServer.create(InetSocketAddress(0), 0)
 
     val rangeRequestCount = AtomicInteger(0)
+    val failedRangeRequestCount = AtomicInteger(0)
 
     init {
         server.createContext("/file") { exchange ->
@@ -224,6 +263,14 @@ private class RangeTestServer(
         }
 
         rangeRequestCount.incrementAndGet()
+
+        if (failFirstRangeRequest && failedRangeRequestCount.compareAndSet(0, 1)) {
+            val message = "Simulated temporary range request failure"
+            val responseBody = message.toByteArray()
+            exchange.sendResponseHeaders(500, responseBody.size.toLong())
+            exchange.responseBody.write(responseBody)
+            return
+        }
 
         val range = parseRange(rangeHeader)
         val chunk = data.copyOfRange(range.first.toInt(), range.second.toInt() + 1)
