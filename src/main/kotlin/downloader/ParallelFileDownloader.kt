@@ -171,6 +171,8 @@ class ParallelFileDownloader(
             )
         }
 
+        validateContentRange(response, range)
+
         val bytes = response.body()
         val expectedSize = range.size
 
@@ -183,6 +185,25 @@ class ParallelFileDownloader(
 
         FileChannel.open(outputPath, StandardOpenOption.WRITE).use { channel ->
             channel.write(ByteBuffer.wrap(bytes), range.start)
+        }
+    }
+    private fun validateContentRange(
+        response: HttpResponse<ByteArray>,
+        range: ChunkRange,
+    ) {
+        val contentRange = response.headers()
+            .firstValue("Content-Range")
+            .orElseThrow {
+                DownloadException("Missing Content-Range header for range ${range.start}-${range.end}")
+            }
+
+        val expectedPrefix = "bytes ${range.start}-${range.end}/"
+
+        if (!contentRange.startsWith(expectedPrefix)) {
+            throw DownloadException(
+                "Unexpected Content-Range for range ${range.start}-${range.end}: " +
+                    "expected prefix '$expectedPrefix', got '$contentRange'"
+            )
         }
     }
 }
