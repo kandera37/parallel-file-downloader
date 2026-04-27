@@ -229,6 +229,34 @@ class ParallelFileDownloaderTest {
             Files.deleteIfExists(outputPath)
         }
     }
+
+    @Test
+    fun failsWhenContentRangeDoesNotMatchRequestedRange() {
+        val data = ByteArray(20_000) { index ->
+            (index % 256).toByte()
+        }
+
+        RangeTestServer(
+            data = data,
+            invalidContentRange = true,
+        ).use { server ->
+            val outputPath = Files.createTempFile("downloaded-invalid-content-range", ".bin")
+
+            val downloader = ParallelFileDownloader(
+                DownloadConfig(
+                    chunkSize = 1000,
+                    parallelism = 4,
+                    maxRetries = 0,
+                )
+            )
+
+            assertFailsWith<DownloadException> {
+                downloader.download(server.url(), outputPath)
+            }
+
+            Files.deleteIfExists(outputPath)
+        }
+    }
 }
 
 private class RangeTestServer(
@@ -237,6 +265,7 @@ private class RangeTestServer(
     private val includeContentLength: Boolean = true,
     private val failFirstRangeRequest: Boolean = false,
     private val corruptFirstRangeResponse: Boolean = false,
+    private val invalidContentRange: Boolean = false,
 ) : AutoCloseable {
     private val server: HttpServer = HttpServer.create(InetSocketAddress(0), 0)
 
@@ -316,10 +345,14 @@ private class RangeTestServer(
                 expectedChunk
             }
 
-        exchange.responseHeaders.add(
-            "Content-Range",
-            "bytes ${range.first}-${range.second}/${data.size}"
-        )
+        val contentRange =
+            if (invalidContentRange) {
+                "bytes 0-0/${data.size}"
+            } else {
+                "bytes ${range.first}-${range.second}/${data.size}"
+            }
+
+        exchange.responseHeaders.add("Content-Range", contentRange)
         exchange.responseHeaders.add("Content-Length", chunk.size.toString())
 
         exchange.sendResponseHeaders(206, chunk.size.toLong())
