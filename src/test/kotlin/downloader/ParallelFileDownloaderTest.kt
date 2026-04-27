@@ -197,6 +197,38 @@ class ParallelFileDownloaderTest {
             Files.deleteIfExists(outputPath)
         }
     }
+
+    @Test
+    fun failsWhenRangeResponseHasUnexpectedSize() {
+        val data = ByteArray(20_000) { index ->
+            (index % 256).toByte()
+        }
+
+        RangeTestServer(
+            data = data,
+            corruptFirstRangeResponse = true,
+        ).use { server ->
+            val outputPath = Files.createTempFile("downloaded-corrupted", ".bin")
+
+            val downloader = ParallelFileDownloader(
+                DownloadConfig(
+                    chunkSize = 1000,
+                    parallelism = 4,
+                    maxRetries = 0,
+                )
+            )
+
+            assertFailsWith<DownloadException> {
+                downloader.download(server.url(), outputPath)
+            }
+
+            assert(server.corruptedRangeResponseCount.get() == 1) {
+                "Expected exactly one corrupted range response, got ${server.corruptedRangeResponseCount.get()}"
+            }
+
+            Files.deleteIfExists(outputPath)
+        }
+    }
 }
 
 private class RangeTestServer(
@@ -204,11 +236,13 @@ private class RangeTestServer(
     private val supportsRanges: Boolean = true,
     private val includeContentLength: Boolean = true,
     private val failFirstRangeRequest: Boolean = false,
+    private val corruptFirstRangeResponse: Boolean = false,
 ) : AutoCloseable {
     private val server: HttpServer = HttpServer.create(InetSocketAddress(0), 0)
 
     val rangeRequestCount = AtomicInteger(0)
     val failedRangeRequestCount = AtomicInteger(0)
+    val corruptedRangeResponseCount = AtomicInteger(0)
 
     init {
         server.createContext("/file") { exchange ->
@@ -273,7 +307,14 @@ private class RangeTestServer(
         }
 
         val range = parseRange(rangeHeader)
-        val chunk = data.copyOfRange(range.first.toInt(), range.second.toInt() + 1)
+        val expectedChunk = data.copyOfRange(range.first.toInt(), range.second.toInt() + 1)
+
+        val chunk =
+            if (corruptFirstRangeResponse && corruptedRangeResponseCount.compareAndSet(0, 1)) {
+                expectedChunk.dropLast(1).toByteArray()
+            } else {
+                expectedChunk
+            }
 
         exchange.responseHeaders.add(
             "Content-Range",
