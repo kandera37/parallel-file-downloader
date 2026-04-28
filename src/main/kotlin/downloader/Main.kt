@@ -1,6 +1,20 @@
 package downloader
 
+import kotlin.system.exitProcess
+
 fun main(args: Array<String>) {
+    try {
+        run(args)
+    } catch (e: DownloadException) {
+        System.err.println("Error: ${e.message}")
+        exitProcess(1)
+    } catch (e: IllegalArgumentException) {
+        System.err.println("Error: ${e.message}")
+        exitProcess(1)
+    }
+}
+
+private fun run(args: Array<String>) {
     if (args.isEmpty() || args.contains("--help")) {
         printUsage()
         return
