@@ -17,6 +17,8 @@ The project was built for a Data Ingestion test task. It sends a `HEAD` request 
 - Writes chunks directly to their target offsets in the output file
 - Retries failed chunk downloads with a configurable retry limit
 - Supports an optional maximum file size limit before downloading starts
+- Supports dry-run mode for validating metadata and planned chunks without downloading the file
+- Prints a download summary with elapsed time and average speed
 - Provides a command-line interface
 - Includes unit tests with an embedded HTTP test server
 - Includes GitHub Actions CI for automatic test execution
@@ -35,19 +37,20 @@ The project was built for a Data Ingestion test task. It sends a `HEAD` request 
    - `Accept-Ranges: bytes`
 3. If a maximum file size is configured, it checks the file size before downloading.
 4. It splits the file into byte ranges based on the configured chunk size.
-5. It sends parallel `GET` requests with the `Range` header, for example:
+5. If dry-run mode is enabled, it prints the planned download summary and exits without creating the output file or sending range download requests.
+6. Otherwise, it sends parallel `GET` requests with the `Range` header, for example:
 
    ```http
    Range: bytes=1024-2047
    ```
 
-6. For every range response, it validates:
+7. For every range response, it validates:
    - HTTP status `206 Partial Content`
    - `Content-Range` header
    - downloaded chunk size
-7. Each downloaded chunk is written to its final position in the output file.
-8. If a chunk download fails, it is retried up to the configured retry limit.
-9. After all chunks complete successfully, the output file contains the full downloaded file.
+8. Each downloaded chunk is written to its final position in the output file.
+9. If a chunk download fails, it is retried up to the configured retry limit.
+10. After all chunks complete successfully, the output file contains the full downloaded file.
 
 ## Design notes
 
@@ -64,6 +67,8 @@ The implementation also validates the size of every downloaded chunk. If a serve
 `Content-Range` validation is used to confirm that the server returned the same byte range that was requested. Checking only the chunk size is not enough, because a server could theoretically return the right number of bytes from the wrong range.
 
 The optional maximum file size limit is checked after the `HEAD` request and before any range requests are sent. This prevents the downloader from starting large downloads when a size limit has been configured.
+
+Dry-run mode is intended for quickly inspecting a source file before downloading it. It still performs the `HEAD` request, validates metadata, checks the optional maximum file size, and calculates the planned chunk layout, but it does not create the output file or send range download requests.
 
 ## Project structure
 
@@ -107,6 +112,7 @@ The test suite verifies:
 - failing when a range response has an unexpected size
 - failing when `Content-Range` does not match the requested range
 - failing when a file exceeds the configured maximum file size
+- dry-run mode not creating an output file or sending range requests
 - CLI argument parsing
 - download configuration validation
 
@@ -121,6 +127,18 @@ On every push to `main` and on every pull request, GitHub Actions runs:
 ```
 
 This verifies that the project builds and that the test suite passes in a clean environment.
+
+## Smoke test script
+
+The repository also includes a small smoke-test script for manual end-to-end testing with a local Apache server.
+
+After starting Docker Apache as described below, run:
+
+```bash
+./scripts/smoke-test.sh
+```
+
+The script checks the `HEAD` response, performs a small range request, runs the downloader, compares the downloaded file with the source file, and prints file sizes.
 
 ## Manual test with Docker
 
@@ -171,7 +189,18 @@ Arguments:
 --parallelism     Number of parallel worker threads. Default: 4
 --max-retries     Number of retry attempts per failed chunk. Default: 3
 --max-file-size   Optional maximum allowed file size in bytes
+--dry-run         Validate metadata and print the planned download without creating an output file
 ```
+
+### Dry-run mode
+
+Dry-run mode can be used to inspect metadata and the planned chunk layout without downloading the file:
+
+```bash
+./gradlew run --args="http://localhost:8080/big-file.txt dry-run-output.txt --chunk-size 1024 --parallelism 4 --max-retries 3 --max-file-size 10000000 --dry-run"
+```
+
+In this mode, the downloader validates the file metadata and prints the planned download summary, but it does not create `dry-run-output.txt` and does not send range download requests.
 
 You can also display usage information:
 
@@ -207,6 +236,7 @@ The downloader fails with a `DownloadException` when:
 - `Content-Range` is missing or does not match the requested range
 - a downloaded chunk has an unexpected size
 - a chunk still fails after all retry attempts
+- the configured maximum file size is invalid
 - an invalid CLI argument is provided
 
 ## Current limitations
