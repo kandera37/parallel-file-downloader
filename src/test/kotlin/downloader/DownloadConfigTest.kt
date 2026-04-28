@@ -14,6 +14,8 @@ class DownloadConfigTest {
         assertEquals(4, config.parallelism)
         assertEquals(3, config.maxRetries)
         assertNull(config.maxFileSize)
+        assertEquals(false, config.dryRun)
+        assertEquals(30, config.timeoutSeconds)
     }
 
     @Test
@@ -23,12 +25,16 @@ class DownloadConfigTest {
             parallelism = 8,
             maxRetries = 5,
             maxFileSize = 10_000_000,
+            dryRun = true,
+            timeoutSeconds = 15,
         )
 
         assertEquals(1024, config.chunkSize)
         assertEquals(8, config.parallelism)
         assertEquals(5, config.maxRetries)
         assertEquals(10_000_000, config.maxFileSize)
+        assertEquals(true, config.dryRun)
+        assertEquals(15, config.timeoutSeconds)
     }
 
     @Test
@@ -68,6 +74,17 @@ class DownloadConfigTest {
 
         assertFailsWith<IllegalArgumentException> {
             DownloadConfig(maxFileSize = -1)
+        }
+    }
+
+    @Test
+    fun failsWhenTimeoutSecondsIsNotPositive() {
+        assertFailsWith<IllegalArgumentException> {
+            DownloadConfig(timeoutSeconds = 0)
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            DownloadConfig(timeoutSeconds = -1)
         }
     }
 }

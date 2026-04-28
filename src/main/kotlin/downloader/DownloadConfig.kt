@@ -6,11 +6,13 @@ data class DownloadConfig(
     val maxRetries: Int = 3,
     val maxFileSize: Long? = null,
     val dryRun: Boolean = false,
+    val timeoutSeconds: Long = 30,
 ) {
     init {
         require(chunkSize > 0) { "chunkSize must be positive" }
         require(parallelism > 0) { "parallelism must be positive" }
         require(maxRetries >= 0) { "maxRetries must be zero or positive" }
         require(maxFileSize == null || maxFileSize > 0) { "maxFileSize must be positive when provided" }
+        require(timeoutSeconds > 0) { "timeoutSeconds must be positive" }
     }
 }

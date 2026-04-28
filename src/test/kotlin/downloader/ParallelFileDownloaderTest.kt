@@ -2,17 +2,18 @@ package downloader
 
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
-import kotlin.test.Test
-import kotlin.test.assertContentEquals
-import kotlin.test.assertFailsWith
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.test.Test
+import kotlin.test.assertContentEquals
+import kotlin.test.assertFailsWith
 
 class ParallelFileDownloaderTest {
     @Test
     fun downloadsSmallFileCorrectly() {
         val data = "Hello from test server!".toByteArray()
+
         RangeTestServer(data).use { server ->
             val outputPath = Files.createTempFile("downloaded-small", ".txt")
 
@@ -351,9 +352,7 @@ private class RangeTestServer(
             when (exchange.requestMethod) {
                 "HEAD" -> handleHead(exchange)
                 "GET" -> handleGet(exchange)
-                else -> {
-                    exchange.sendResponseHeaders(405, -1)
-                }
+                else -> exchange.sendResponseHeaders(405, -1)
             }
         } finally {
             exchange.close()

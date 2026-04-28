@@ -23,6 +23,7 @@ class CliArgumentsTest {
         assertEquals(3, arguments.config.maxRetries)
         assertNull(arguments.config.maxFileSize)
         assertEquals(false, arguments.config.dryRun)
+        assertEquals(30, arguments.config.timeoutSeconds)
     }
 
     @Test
@@ -39,6 +40,8 @@ class CliArgumentsTest {
                 "5",
                 "--max-file-size",
                 "10000000",
+                "--timeout-seconds",
+                "15",
                 "--dry-run",
             )
         )
@@ -48,6 +51,7 @@ class CliArgumentsTest {
         assertEquals(5, arguments.config.maxRetries)
         assertEquals(10_000_000, arguments.config.maxFileSize)
         assertEquals(true, arguments.config.dryRun)
+        assertEquals(15, arguments.config.timeoutSeconds)
     }
 
     @Test
@@ -61,6 +65,20 @@ class CliArgumentsTest {
         )
 
         assertEquals(true, arguments.config.dryRun)
+    }
+
+    @Test
+    fun parsesTimeoutSecondsOption() {
+        val arguments = CliArgumentsParser.parse(
+            arrayOf(
+                "http://localhost:8080/file.txt",
+                "downloaded.txt",
+                "--timeout-seconds",
+                "10",
+            )
+        )
+
+        assertEquals(10, arguments.config.timeoutSeconds)
     }
 
     @Test

@@ -26,6 +26,7 @@ object CliArgumentsParser {
         var maxRetries = 3
         var maxFileSize: Long? = null
         var dryRun = false
+        var timeoutSeconds = 30L
 
         var index = 2
         while (index < args.size) {
@@ -55,6 +56,11 @@ object CliArgumentsParser {
                     index += 1
                 }
 
+                "--timeout-seconds" -> {
+                    timeoutSeconds = readLongOption(args, index, "--timeout-seconds")
+                    index += 2
+                }
+
                 else -> {
                     throw DownloadException("Unknown argument: ${args[index]}")
                 }
@@ -70,6 +76,7 @@ object CliArgumentsParser {
                 maxRetries = maxRetries,
                 maxFileSize = maxFileSize,
                 dryRun = dryRun,
+                timeoutSeconds = timeoutSeconds,
             ),
         )
     }

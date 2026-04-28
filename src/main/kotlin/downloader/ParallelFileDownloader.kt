@@ -4,6 +4,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
 import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.nio.file.Path
@@ -30,6 +31,7 @@ class ParallelFileDownloader(
         println("Chunks: ${ranges.size}")
         println("Parallelism: ${config.parallelism}")
         println("Max retries: ${config.maxRetries}")
+        println("Timeout: ${config.timeoutSeconds} seconds")
         config.maxFileSize?.let { maxFileSize ->
             println("Max file size: $maxFileSize bytes")
         }
@@ -54,6 +56,7 @@ class ParallelFileDownloader(
 
     private fun fetchMetadata(uri: URI): DownloadMetadata {
         val headRequest = HttpRequest.newBuilder(uri)
+            .timeout(Duration.ofSeconds(config.timeoutSeconds))
             .method("HEAD", HttpRequest.BodyPublishers.noBody())
             .build()
 
@@ -187,6 +190,7 @@ class ParallelFileDownloader(
         range: ChunkRange,
     ) {
         val request = HttpRequest.newBuilder(uri)
+            .timeout(Duration.ofSeconds(config.timeoutSeconds))
             .GET()
             .header("Range", "bytes=${range.start}-${range.end}")
             .build()
