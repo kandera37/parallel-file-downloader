@@ -25,7 +25,6 @@ class ParallelFileDownloader(
         validateFileSize(metadata.contentLength)
         val ranges = createRanges(metadata.contentLength)
 
-        prepareOutputFile(outputPath, metadata.contentLength)
         println("File size: ${metadata.contentLength} bytes")
         println("Chunk size: ${config.chunkSize} bytes")
         println("Chunks: ${ranges.size}")
@@ -34,6 +33,13 @@ class ParallelFileDownloader(
         config.maxFileSize?.let { maxFileSize ->
             println("Max file size: $maxFileSize bytes")
         }
+
+        if (config.dryRun) {
+            println("Dry run enabled: file was not downloaded.")
+            return
+        }
+
+        prepareOutputFile(outputPath, metadata.contentLength)
         downloadRangesInParallel(uri, outputPath, ranges)
 
         val elapsedSeconds = (System.nanoTime() - startedAt) / 1_000_000_000.0

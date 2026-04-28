@@ -5,6 +5,7 @@ data class DownloadConfig(
     val parallelism: Int = 4,
     val maxRetries: Int = 3,
     val maxFileSize: Long? = null,
+    val dryRun: Boolean = false,
 ) {
     init {
         require(chunkSize > 0) { "chunkSize must be positive" }

@@ -22,6 +22,7 @@ class CliArgumentsTest {
         assertEquals(4, arguments.config.parallelism)
         assertEquals(3, arguments.config.maxRetries)
         assertNull(arguments.config.maxFileSize)
+        assertEquals(false, arguments.config.dryRun)
     }
 
     @Test
@@ -38,6 +39,7 @@ class CliArgumentsTest {
                 "5",
                 "--max-file-size",
                 "10000000",
+                "--dry-run",
             )
         )
 
@@ -45,6 +47,20 @@ class CliArgumentsTest {
         assertEquals(8, arguments.config.parallelism)
         assertEquals(5, arguments.config.maxRetries)
         assertEquals(10_000_000, arguments.config.maxFileSize)
+        assertEquals(true, arguments.config.dryRun)
+    }
+
+    @Test
+    fun parsesDryRunFlag() {
+        val arguments = CliArgumentsParser.parse(
+            arrayOf(
+                "http://localhost:8080/file.txt",
+                "downloaded.txt",
+                "--dry-run",
+            )
+        )
+
+        assertEquals(true, arguments.config.dryRun)
     }
 
     @Test

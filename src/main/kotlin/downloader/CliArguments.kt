@@ -25,6 +25,7 @@ object CliArgumentsParser {
         var parallelism = 4
         var maxRetries = 3
         var maxFileSize: Long? = null
+        var dryRun = false
 
         var index = 2
         while (index < args.size) {
@@ -49,6 +50,11 @@ object CliArgumentsParser {
                     index += 2
                 }
 
+                "--dry-run" -> {
+                    dryRun = true
+                    index += 1
+                }
+
                 else -> {
                     throw DownloadException("Unknown argument: ${args[index]}")
                 }
@@ -63,6 +69,7 @@ object CliArgumentsParser {
                 parallelism = parallelism,
                 maxRetries = maxRetries,
                 maxFileSize = maxFileSize,
+                dryRun = dryRun,
             ),
         )
     }

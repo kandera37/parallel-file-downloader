@@ -287,6 +287,37 @@ class ParallelFileDownloaderTest {
             Files.deleteIfExists(outputPath)
         }
     }
+
+    @Test
+    fun dryRunDoesNotCreateOutputFileOrSendRangeRequests() {
+        val data = ByteArray(20_000) { index ->
+            (index % 256).toByte()
+        }
+
+        RangeTestServer(data).use { server ->
+            val outputPath = Files.createTempFile("downloaded-dry-run", ".bin")
+            Files.deleteIfExists(outputPath)
+
+            val downloader = ParallelFileDownloader(
+                DownloadConfig(
+                    chunkSize = 1000,
+                    parallelism = 4,
+                    maxRetries = 0,
+                    dryRun = true,
+                )
+            )
+
+            downloader.download(server.url(), outputPath)
+
+            assert(!Files.exists(outputPath)) {
+                "Expected dry run not to create output file"
+            }
+
+            assert(server.rangeRequestCount.get() == 0) {
+                "Expected no range requests in dry run, got ${server.rangeRequestCount.get()}"
+            }
+        }
+    }
 }
 
 private class RangeTestServer(
