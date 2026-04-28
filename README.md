@@ -17,6 +17,7 @@ The project was built for a Data Ingestion test task. It sends a `HEAD` request 
 - Writes chunks directly to their target offsets in the output file
 - Retries failed chunk downloads with a configurable retry limit
 - Supports an optional maximum file size limit before downloading starts
+- Supports configurable HTTP request timeout
 - Supports dry-run mode for validating metadata and planned chunks without downloading the file
 - Prints a download summary with elapsed time and average speed
 - Provides a command-line interface
@@ -31,7 +32,7 @@ The project was built for a Data Ingestion test task. It sends a `HEAD` request 
 
 ## How it works
 
-1. The downloader sends a `HEAD` request to the target URL.
+1. The downloader sends a `HEAD` request to the target URL with the configured HTTP timeout.
 2. It checks that the server provides:
    - `Content-Length`
    - `Accept-Ranges: bytes`
@@ -69,6 +70,8 @@ The implementation also validates the size of every downloaded chunk. If a serve
 The optional maximum file size limit is checked after the `HEAD` request and before any range requests are sent. This prevents the downloader from starting large downloads when a size limit has been configured.
 
 Dry-run mode is intended for quickly inspecting a source file before downloading it. It still performs the `HEAD` request, validates metadata, checks the optional maximum file size, and calculates the planned chunk layout, but it does not create the output file or send range download requests.
+
+HTTP request timeout is applied to both metadata requests and range download requests. This prevents the downloader from waiting indefinitely if a server becomes slow or unresponsive.
 
 ## Project structure
 
@@ -115,6 +118,7 @@ The test suite verifies:
 - dry-run mode not creating an output file or sending range requests
 - CLI argument parsing
 - download configuration validation
+- HTTP timeout option parsing and validation
 
 ## GitHub Actions CI
 
@@ -177,7 +181,7 @@ curl -H "Range: bytes=0-4" http://localhost:8080/big-file.txt
 ## Running the downloader
 
 ```bash
-./gradlew run --args="http://localhost:8080/big-file.txt cli-downloaded-big-file.txt --chunk-size 1024 --parallelism 4 --max-retries 3 --max-file-size 10000000"
+./gradlew run --args="http://localhost:8080/big-file.txt cli-downloaded-big-file.txt --chunk-size 1024 --parallelism 4 --max-retries 3 --max-file-size 10000000 --timeout-seconds 30"
 ```
 
 Arguments:
@@ -189,6 +193,7 @@ Arguments:
 --parallelism     Number of parallel worker threads. Default: 4
 --max-retries     Number of retry attempts per failed chunk. Default: 3
 --max-file-size   Optional maximum allowed file size in bytes
+--timeout-seconds  HTTP request timeout in seconds. Default: 30
 --dry-run         Validate metadata and print the planned download without creating an output file
 ```
 
@@ -197,7 +202,7 @@ Arguments:
 Dry-run mode can be used to inspect metadata and the planned chunk layout without downloading the file:
 
 ```bash
-./gradlew run --args="http://localhost:8080/big-file.txt dry-run-output.txt --chunk-size 1024 --parallelism 4 --max-retries 3 --max-file-size 10000000 --dry-run"
+./gradlew run --args="http://localhost:8080/big-file.txt dry-run-output.txt --chunk-size 1024 --parallelism 4 --max-retries 3 --max-file-size 10000000 --timeout-seconds 30 --dry-run"
 ```
 
 In this mode, the downloader validates the file metadata and prints the planned download summary, but it does not create `dry-run-output.txt` and does not send range download requests.
@@ -237,6 +242,7 @@ The downloader fails with a `DownloadException` when:
 - a downloaded chunk has an unexpected size
 - a chunk still fails after all retry attempts
 - the configured maximum file size is invalid
+- the configured HTTP timeout is invalid
 - an invalid CLI argument is provided
 
 ## Current limitations
