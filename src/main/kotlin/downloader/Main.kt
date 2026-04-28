@@ -1,83 +1,19 @@
 package downloader
 
-import java.nio.file.Path
-
 fun main(args: Array<String>) {
     if (args.isEmpty() || args.contains("--help")) {
         printUsage()
         return
     }
 
-    if (args.size < 2) {
-        printUsage()
-        throw DownloadException("Missing required arguments: <url> and <output-path>")
-    }
+    val cliArguments = CliArgumentsParser.parse(args)
 
-    val url = args[0]
-    val outputPath = Path.of(args[1])
+    val downloader = ParallelFileDownloader(cliArguments.config)
 
-    var chunkSize = 1024L * 1024L
-    var parallelism = 4
-    var maxRetries = 3
-    var maxFileSize: Long? = null
-
-    var index = 2
-    while (index < args.size) {
-        when (args[index]) {
-            "--chunk-size" -> {
-                chunkSize = readLongOption(args, index, "--chunk-size")
-                index += 2
-            }
-
-            "--parallelism" -> {
-                parallelism = readIntOption(args, index, "--parallelism")
-                index += 2
-            }
-
-            "--max-retries" -> {
-                maxRetries = readIntOption(args, index, "--max-retries")
-                index += 2
-            }
-
-            "--max-file-size" -> {
-                maxFileSize = readLongOption(args, index, "--max-file-size")
-                index += 2
-            }
-
-            else -> {
-                throw DownloadException("Unknown argument: ${args[index]}")
-            }
-        }
-    }
-
-    val downloader = ParallelFileDownloader(
-        DownloadConfig(
-            chunkSize = chunkSize,
-            parallelism = parallelism,
-            maxRetries = maxRetries,
-            maxFileSize = maxFileSize,
-        )
+    downloader.download(
+        url = cliArguments.url,
+        outputPath = cliArguments.outputPath,
     )
-
-    downloader.download(url, outputPath)
-}
-
-private fun readLongOption(args: Array<String>, index: Int, optionName: String): Long {
-    if (index + 1 >= args.size) {
-        throw DownloadException("Missing value for $optionName")
-    }
-
-    return args[index + 1].toLongOrNull()
-        ?: throw DownloadException("Invalid number for $optionName: ${args[index + 1]}")
-}
-
-private fun readIntOption(args: Array<String>, index: Int, optionName: String): Int {
-    if (index + 1 >= args.size) {
-        throw DownloadException("Missing value for $optionName")
-    }
-
-    return args[index + 1].toIntOrNull()
-        ?: throw DownloadException("Invalid number for $optionName: ${args[index + 1]}")
 }
 
 private fun printUsage() {
