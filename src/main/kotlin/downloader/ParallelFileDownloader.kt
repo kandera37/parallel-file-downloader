@@ -21,6 +21,7 @@ class ParallelFileDownloader(
         val uri = URI.create(url)
 
         val metadata = fetchMetadata(uri)
+        validateFileSize(metadata.contentLength)
         val ranges = createRanges(metadata.contentLength)
 
         prepareOutputFile(outputPath, metadata.contentLength)
@@ -29,6 +30,9 @@ class ParallelFileDownloader(
         println("Chunks: ${ranges.size}")
         println("Parallelism: ${config.parallelism}")
         println("Max retries: ${config.maxRetries}")
+        config.maxFileSize?.let { maxFileSize ->
+            println("Max file size: $maxFileSize bytes")
+        }
         downloadRangesInParallel(uri, outputPath, ranges)
 
         println("Downloaded ${metadata.contentLength} bytes to $outputPath")
@@ -63,6 +67,16 @@ class ParallelFileDownloader(
             contentLength = contentLength,
             acceptRanges = acceptRanges,
         )
+    }
+
+    private fun validateFileSize(contentLength: Long) {
+        val maxFileSize = config.maxFileSize ?: return
+
+        if (contentLength > maxFileSize) {
+            throw DownloadException(
+                "File size $contentLength bytes exceeds configured maximum of $maxFileSize bytes"
+            )
+        }
     }
 
     private fun createRanges(contentLength: Long): List<ChunkRange> {
@@ -187,6 +201,7 @@ class ParallelFileDownloader(
             channel.write(ByteBuffer.wrap(bytes), range.start)
         }
     }
+
     private fun validateContentRange(
         response: HttpResponse<ByteArray>,
         range: ChunkRange,

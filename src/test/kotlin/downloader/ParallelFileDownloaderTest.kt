@@ -257,6 +257,36 @@ class ParallelFileDownloaderTest {
             Files.deleteIfExists(outputPath)
         }
     }
+
+    @Test
+    fun failsWhenFileExceedsConfiguredMaximumSize() {
+        val data = ByteArray(20_000) { index ->
+            (index % 256).toByte()
+        }
+
+        RangeTestServer(data).use { server ->
+            val outputPath = Files.createTempFile("downloaded-too-large", ".bin")
+
+            val downloader = ParallelFileDownloader(
+                DownloadConfig(
+                    chunkSize = 1000,
+                    parallelism = 4,
+                    maxRetries = 0,
+                    maxFileSize = 10_000,
+                )
+            )
+
+            assertFailsWith<DownloadException> {
+                downloader.download(server.url(), outputPath)
+            }
+
+            assert(server.rangeRequestCount.get() == 0) {
+                "Expected no range requests when file exceeds max size, got ${server.rangeRequestCount.get()}"
+            }
+
+            Files.deleteIfExists(outputPath)
+        }
+    }
 }
 
 private class RangeTestServer(

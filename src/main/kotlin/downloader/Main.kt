@@ -19,6 +19,7 @@ fun main(args: Array<String>) {
     var chunkSize = 1024L * 1024L
     var parallelism = 4
     var maxRetries = 3
+    var maxFileSize: Long? = null
 
     var index = 2
     while (index < args.size) {
@@ -38,6 +39,11 @@ fun main(args: Array<String>) {
                 index += 2
             }
 
+            "--max-file-size" -> {
+                maxFileSize = readLongOption(args, index, "--max-file-size")
+                index += 2
+            }
+
             else -> {
                 throw DownloadException("Unknown argument: ${args[index]}")
             }
@@ -49,6 +55,7 @@ fun main(args: Array<String>) {
             chunkSize = chunkSize,
             parallelism = parallelism,
             maxRetries = maxRetries,
+            maxFileSize = maxFileSize,
         )
     )
 
@@ -77,15 +84,16 @@ private fun printUsage() {
     println(
         """
         Usage:
-          ./gradlew run --args="<url> <output-path> [--chunk-size bytes] [--parallelism n] [--max-retries n]"
+          ./gradlew run --args="<url> <output-path> [--chunk-size bytes] [--parallelism n] [--max-retries n] [--max-file-size bytes]"
 
         Example:
-          ./gradlew run --args="http://localhost:8080/big-file.txt cli-downloaded-big-file.txt --chunk-size 1024 --parallelism 4 --max-retries 3"
+          ./gradlew run --args="http://localhost:8080/big-file.txt cli-downloaded-big-file.txt --chunk-size 1024 --parallelism 4 --max-retries 3 --max-file-size 10000000"
 
         Options:
-          --chunk-size    Size of each downloaded byte range. Default: 1048576
-          --parallelism   Number of parallel download workers. Default: 4
-          --max-retries   Number of retry attempts per failed chunk. Default: 3
+          --chunk-size      Size of each downloaded byte range. Default: 1048576
+          --parallelism     Number of parallel download workers. Default: 4
+          --max-retries     Number of retry attempts per failed chunk. Default: 3
+          --max-file-size   Optional maximum allowed file size in bytes.
         """.trimIndent()
     )
 }
