@@ -45,3 +45,4 @@ bin/
 downloaded.txt
 downloaded-big-file.txt
 cli-downloaded-big-file.txt
+smoke-downloaded-big-file.txt
