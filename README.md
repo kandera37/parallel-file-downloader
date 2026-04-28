@@ -1,44 +1,53 @@
 # Parallel File Downloader
 
+![CI](https://github.com/kandera37/parallel-file-downloader/actions/workflows/ci.yml/badge.svg)
+
 A Kotlin command-line file downloader that downloads files in parallel using HTTP byte-range requests.
 
-The downloader sends a `HEAD` request to inspect file metadata, checks `Content-Length` and `Accept-Ranges: bytes`, splits the file into chunks, downloads the chunks concurrently using HTTP `Range` requests, and writes every chunk to the correct position in the output file.
+The project was built for a Data Ingestion test task. It sends a `HEAD` request to inspect file metadata, validates that the server supports byte ranges, splits the file into chunks, downloads those chunks concurrently, and writes every chunk into the correct position in the output file.
 
 ## Features
 
-- HTTP `Range` request support
-- Parallel chunk downloading
-- Configurable chunk size
-- Configurable parallelism
-- Configurable retry attempts for failed chunks
-- Validation of `Content-Length` and `Accept-Ranges`
-- Chunk size validation to avoid silently writing corrupted output
-- Command-line interface
-- Unit tests with an embedded HTTP server
-- GitHub Actions CI for automatic test runs
+- Downloads files using HTTP `Range` requests
+- Splits files into configurable byte chunks
+- Downloads chunks in parallel using a fixed-size thread pool
+- Validates `Content-Length` and `Accept-Ranges: bytes`
+- Validates `Content-Range` headers for range responses
+- Verifies that every downloaded chunk has the expected size
+- Writes chunks directly to their target offsets in the output file
+- Retries failed chunk downloads with a configurable retry limit
+- Supports an optional maximum file size limit before downloading starts
+- Provides a command-line interface
+- Includes unit tests with an embedded HTTP test server
+- Includes GitHub Actions CI for automatic test execution
 
 ## Requirements
 
 - JDK 17
-- Docker, optional, for manual testing
-- Gradle does not need to be installed manually because the Gradle Wrapper is included
+- Gradle Wrapper is included, so Gradle does not need to be installed manually
+- Docker is optional and only needed for manual testing with Apache HTTP Server
 
 ## How it works
 
 1. The downloader sends a `HEAD` request to the target URL.
 2. It checks that the server provides:
-    - `Content-Length`
-    - `Accept-Ranges: bytes`
-3. It splits the file into byte ranges based on the configured chunk size.
-4. It sends parallel `GET` requests with the `Range` header, for example:
+   - `Content-Length`
+   - `Accept-Ranges: bytes`
+3. If a maximum file size is configured, it checks the file size before downloading.
+4. It splits the file into byte ranges based on the configured chunk size.
+5. It sends parallel `GET` requests with the `Range` header, for example:
 
    ```http
    Range: bytes=1024-2047
    ```
 
-5. If a chunk request fails, the downloader retries it according to `maxRetries`.
-6. Each downloaded chunk is written to its final position in the output file.
-7. After all chunks complete successfully, the output file contains the full downloaded file.
+6. For every range response, it validates:
+   - HTTP status `206 Partial Content`
+   - `Content-Range` header
+   - downloaded chunk size
+7. Each downloaded chunk is written to its final position in the output file.
+8. If a chunk download fails, it is retried up to the configured retry limit.
+9. After all chunks complete successfully, the output file contains the full downloaded file.
 
 ## Design notes
 
@@ -52,36 +61,30 @@ This avoids sharing a mutable file cursor between worker threads. Each worker wr
 
 The implementation also validates the size of every downloaded chunk. If a server returns fewer or more bytes than expected, the downloader fails instead of silently producing a corrupted file.
 
-Retry logic is applied per chunk. This means a temporary failure of one range request does not immediately fail the whole download, but persistent failures still result in a `DownloadException`.
+`Content-Range` validation is used to confirm that the server returned the same byte range that was requested. Checking only the chunk size is not enough, because a server could theoretically return the right number of bytes from the wrong range.
+
+The optional maximum file size limit is checked after the `HEAD` request and before any range requests are sent. This prevents the downloader from starting large downloads when a size limit has been configured.
 
 ## Project structure
 
 ```text
-parallel-file-downloader/
-├── README.md
-├── build.gradle.kts
-├── settings.gradle.kts
-├── gradlew
-├── gradlew.bat
-├── gradle/
-│   └── wrapper/
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-└── src/
-    ├── main/
-    │   └── kotlin/
-    │       └── downloader/
-    │           ├── ChunkRange.kt
-    │           ├── DownloadConfig.kt
-    │           ├── DownloadException.kt
-    │           ├── DownloadMetadata.kt
-    │           ├── Main.kt
-    │           └── ParallelFileDownloader.kt
-    └── test/
-        └── kotlin/
-            └── downloader/
-                └── ParallelFileDownloaderTest.kt
+src/
+  main/
+    kotlin/
+      downloader/
+        ChunkRange.kt
+        CliArguments.kt
+        DownloadConfig.kt
+        DownloadException.kt
+        DownloadMetadata.kt
+        Main.kt
+        ParallelFileDownloader.kt
+  test/
+    kotlin/
+      downloader/
+        CliArgumentsTest.kt
+        DownloadConfigTest.kt
+        ParallelFileDownloaderTest.kt
 ```
 
 ## Running tests
@@ -90,7 +93,7 @@ parallel-file-downloader/
 ./gradlew clean test
 ```
 
-The tests use an embedded HTTP server and do not require Docker.
+The tests use an embedded HTTP server, so Docker is not required for automated testing.
 
 The test suite verifies:
 
@@ -100,35 +103,35 @@ The test suite verifies:
 - failing when range requests are not supported
 - failing when `Content-Length` is missing
 - sending multiple range requests for a large file
-- retrying a temporary failed range request
-- failing when a range response has an unexpected chunk size
+- retrying a temporarily failed range request
+- failing when a range response has an unexpected size
+- failing when `Content-Range` does not match the requested range
+- failing when a file exceeds the configured maximum file size
+- CLI argument parsing
+- download configuration validation
 
-## Continuous integration
+## GitHub Actions CI
 
-The repository includes a GitHub Actions workflow:
+The repository includes GitHub Actions CI.
 
-```text
-.github/workflows/ci.yml
-```
-
-On each push to `main` and on pull requests, GitHub Actions runs:
+On every push to `main` and on every pull request, GitHub Actions runs:
 
 ```bash
 ./gradlew clean test
 ```
 
-This verifies that the project builds and passes tests in a clean environment, not only on the local machine.
+This verifies that the project builds and that the test suite passes in a clean environment.
 
-## Manual testing with Docker
+## Manual test with Docker
 
-Create a test file:
+Create a local directory with a file:
 
 ```bash
 mkdir -p ~/downloader-test
 yes "Hello parallel downloader" | head -n 100000 > ~/downloader-test/big-file.txt
 ```
 
-Start Apache HTTP Server:
+Start Apache HTTP Server with Docker:
 
 ```bash
 docker run --rm -p 8080:80 -v ~/downloader-test:/usr/local/apache2/htdocs/ httpd:latest
@@ -156,20 +159,27 @@ curl -H "Range: bytes=0-4" http://localhost:8080/big-file.txt
 ## Running the downloader
 
 ```bash
-./gradlew run --args="http://localhost:8080/big-file.txt cli-downloaded-big-file.txt --chunk-size 1024 --parallelism 4 --max-retries 3"
+./gradlew run --args="http://localhost:8080/big-file.txt cli-downloaded-big-file.txt --chunk-size 1024 --parallelism 4 --max-retries 3 --max-file-size 10000000"
 ```
 
 Arguments:
 
 ```text
-<url>           URL of the file to download
-<output-path>   Path where the downloaded file will be saved
---chunk-size    Size of each byte range in bytes. Default: 1048576
---parallelism   Number of parallel worker threads. Default: 4
---max-retries   Number of retry attempts per failed chunk. Default: 3
+<url>             URL of the file to download
+<output-path>     Path where the downloaded file will be saved
+--chunk-size      Size of each byte range in bytes. Default: 1048576
+--parallelism     Number of parallel worker threads. Default: 4
+--max-retries     Number of retry attempts per failed chunk. Default: 3
+--max-file-size   Optional maximum allowed file size in bytes
 ```
 
-## Verifying the result
+You can also display usage information:
+
+```bash
+./gradlew run --args="--help"
+```
+
+## Verifying the downloaded file
 
 Compare the original and downloaded files:
 
@@ -187,19 +197,21 @@ wc -c ~/downloader-test/big-file.txt cli-downloaded-big-file.txt
 
 ## Error handling
 
-The downloader throws `DownloadException` when:
+The downloader fails with a `DownloadException` when:
 
 - the `HEAD` request fails
 - `Content-Length` is missing or invalid
 - the server does not support `Accept-Ranges: bytes`
+- the file exceeds the configured maximum file size
 - a range request does not return `206 Partial Content`
+- `Content-Range` is missing or does not match the requested range
 - a downloaded chunk has an unexpected size
 - a chunk still fails after all retry attempts
-- CLI arguments are invalid
+- an invalid CLI argument is provided
 
 ## Current limitations
 
 - The downloader does not resume partially completed downloads.
-- It does not verify file checksums.
+- It does not verify checksums against an external expected hash.
 - It assumes that the server correctly supports standard HTTP byte ranges.
-- It focuses on correctness, parallel downloading, and clear behavior rather than advanced download-manager features.
+- It focuses on correctness, validation, and testability rather than advanced download-manager features.
