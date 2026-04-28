@@ -18,6 +18,7 @@ class ParallelFileDownloader(
     private val client: HttpClient = HttpClient.newHttpClient()
 
     fun download(url: String, outputPath: Path) {
+        val startedAt = System.nanoTime()
         val uri = URI.create(url)
 
         val metadata = fetchMetadata(uri)
@@ -35,7 +36,14 @@ class ParallelFileDownloader(
         }
         downloadRangesInParallel(uri, outputPath, ranges)
 
+        val elapsedSeconds = (System.nanoTime() - startedAt) / 1_000_000_000.0
+        val speedBytesPerSecond =
+            if (elapsedSeconds > 0.0) metadata.contentLength / elapsedSeconds else 0.0
+        val speedMegabytesPerSecond = speedBytesPerSecond / (1024 * 1024)
+
         println("Downloaded ${metadata.contentLength} bytes to $outputPath")
+        println("Elapsed time: ${"%.2f".format(elapsedSeconds)} s")
+        println("Average speed: ${"%.2f".format(speedMegabytesPerSecond)} MB/s")
     }
 
     private fun fetchMetadata(uri: URI): DownloadMetadata {
