@@ -2,7 +2,9 @@ package downloader
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.test.assertNull
 
 class DownloadConfigTest {
@@ -10,12 +12,12 @@ class DownloadConfigTest {
     fun acceptsDefaultConfig() {
         val config = DownloadConfig()
 
-        assertEquals(1024L * 1024L, config.chunkSize)
-        assertEquals(4, config.parallelism)
-        assertEquals(3, config.maxRetries)
+        assertEquals(DownloadConfig.DEFAULT_CHUNK_SIZE, config.chunkSize)
+        assertEquals(DownloadConfig.DEFAULT_PARALLELISM, config.parallelism)
+        assertEquals(DownloadConfig.DEFAULT_MAX_RETRIES, config.maxRetries)
         assertNull(config.maxFileSize)
-        assertEquals(false, config.dryRun)
-        assertEquals(30, config.timeoutSeconds)
+        assertFalse(config.dryRun)
+        assertEquals(DownloadConfig.DEFAULT_TIMEOUT_SECONDS, config.timeoutSeconds)
     }
 
     @Test
@@ -33,7 +35,7 @@ class DownloadConfigTest {
         assertEquals(8, config.parallelism)
         assertEquals(5, config.maxRetries)
         assertEquals(10_000_000, config.maxFileSize)
-        assertEquals(true, config.dryRun)
+        assertTrue(config.dryRun)
         assertEquals(15, config.timeoutSeconds)
     }
 

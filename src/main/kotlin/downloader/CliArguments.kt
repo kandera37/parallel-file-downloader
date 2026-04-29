@@ -9,6 +9,7 @@ data class CliArguments(
 )
 
 object CliArgumentsParser {
+
     fun parse(args: Array<String>): CliArguments {
         if (args.isEmpty() || args.contains("--help")) {
             throw DownloadException("Help requested")
@@ -21,12 +22,12 @@ object CliArgumentsParser {
         val url = args[0]
         val outputPath = Path.of(args[1])
 
-        var chunkSize = 1024L * 1024L
-        var parallelism = 4
-        var maxRetries = 3
+        var chunkSize = DownloadConfig.DEFAULT_CHUNK_SIZE
+        var parallelism = DownloadConfig.DEFAULT_PARALLELISM
+        var maxRetries = DownloadConfig.DEFAULT_MAX_RETRIES
         var maxFileSize: Long? = null
         var dryRun = false
-        var timeoutSeconds = 30L
+        var timeoutSeconds = DownloadConfig.DEFAULT_TIMEOUT_SECONDS
 
         var index = 2
         while (index < args.size) {
@@ -51,14 +52,14 @@ object CliArgumentsParser {
                     index += 2
                 }
 
-                "--dry-run" -> {
-                    dryRun = true
-                    index += 1
-                }
-
                 "--timeout-seconds" -> {
                     timeoutSeconds = readLongOption(args, index, "--timeout-seconds")
                     index += 2
+                }
+
+                "--dry-run" -> {
+                    dryRun = true
+                    index += 1
                 }
 
                 else -> {

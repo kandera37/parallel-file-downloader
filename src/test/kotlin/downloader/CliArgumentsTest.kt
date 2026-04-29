@@ -1,10 +1,12 @@
 package downloader
 
+import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import java.nio.file.Path
+import kotlin.test.assertTrue
 
 class CliArgumentsTest {
     @Test
@@ -18,12 +20,12 @@ class CliArgumentsTest {
 
         assertEquals("http://localhost:8080/file.txt", arguments.url)
         assertEquals(Path.of("downloaded.txt"), arguments.outputPath)
-        assertEquals(1024L * 1024L, arguments.config.chunkSize)
-        assertEquals(4, arguments.config.parallelism)
-        assertEquals(3, arguments.config.maxRetries)
+        assertEquals(DownloadConfig.DEFAULT_CHUNK_SIZE, arguments.config.chunkSize)
+        assertEquals(DownloadConfig.DEFAULT_PARALLELISM, arguments.config.parallelism)
+        assertEquals(DownloadConfig.DEFAULT_MAX_RETRIES, arguments.config.maxRetries)
         assertNull(arguments.config.maxFileSize)
-        assertEquals(false, arguments.config.dryRun)
-        assertEquals(30, arguments.config.timeoutSeconds)
+        assertFalse(arguments.config.dryRun)
+        assertEquals(DownloadConfig.DEFAULT_TIMEOUT_SECONDS, arguments.config.timeoutSeconds)
     }
 
     @Test
@@ -50,7 +52,7 @@ class CliArgumentsTest {
         assertEquals(8, arguments.config.parallelism)
         assertEquals(5, arguments.config.maxRetries)
         assertEquals(10_000_000, arguments.config.maxFileSize)
-        assertEquals(true, arguments.config.dryRun)
+        assertTrue(arguments.config.dryRun)
         assertEquals(15, arguments.config.timeoutSeconds)
     }
 
@@ -64,7 +66,7 @@ class CliArgumentsTest {
             )
         )
 
-        assertEquals(true, arguments.config.dryRun)
+        assertTrue(arguments.config.dryRun)
     }
 
     @Test

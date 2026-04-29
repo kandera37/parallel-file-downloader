@@ -9,11 +9,17 @@ CHUNK_SIZE="${CHUNK_SIZE:-1024}"
 PARALLELISM="${PARALLELISM:-4}"
 MAX_RETRIES="${MAX_RETRIES:-3}"
 MAX_FILE_SIZE="${MAX_FILE_SIZE:-10000000}"
+TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-30}"
 
 echo "Smoke test for parallel-file-downloader"
 echo "URL: $URL"
 echo "Source file: $SOURCE_FILE"
 echo "Output file: $OUTPUT_FILE"
+echo "Chunk size: $CHUNK_SIZE"
+echo "Parallelism: $PARALLELISM"
+echo "Max retries: $MAX_RETRIES"
+echo "Max file size: $MAX_FILE_SIZE"
+echo "Timeout seconds: $TIMEOUT_SECONDS"
 echo
 
 if [ ! -f "$SOURCE_FILE" ]; then
@@ -24,6 +30,8 @@ if [ ! -f "$SOURCE_FILE" ]; then
   exit 1
 fi
 
+rm -f "$OUTPUT_FILE"
+
 echo "Checking HEAD response..."
 curl -I "$URL"
 
@@ -33,7 +41,7 @@ curl -s -H "Range: bytes=0-4" "$URL" >/dev/null
 
 echo
 echo "Running downloader..."
-./gradlew run --args="$URL $OUTPUT_FILE --chunk-size $CHUNK_SIZE --parallelism $PARALLELISM --max-retries $MAX_RETRIES --max-file-size $MAX_FILE_SIZE"
+./gradlew run --args="$URL $OUTPUT_FILE --chunk-size $CHUNK_SIZE --parallelism $PARALLELISM --max-retries $MAX_RETRIES --max-file-size $MAX_FILE_SIZE --timeout-seconds $TIMEOUT_SECONDS"
 
 echo
 echo "Comparing files..."

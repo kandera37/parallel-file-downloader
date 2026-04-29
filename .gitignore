@@ -49,3 +49,5 @@ downloaded.txt
 downloaded-big-file.txt
 cli-downloaded-big-file.txt
 smoke-downloaded-big-file.txt
+too-large.txt
+dry-run-output.txt

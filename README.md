@@ -28,7 +28,7 @@ The project was built for a Data Ingestion test task. It sends a `HEAD` request 
 
 - JDK 17
 - Gradle Wrapper is included, so Gradle does not need to be installed manually
-- Docker is optional and only needed for manual testing with Apache HTTP Server
+- Docker is optional and only needed for manual smoke testing with Apache HTTP Server
 
 ## How it works
 
@@ -142,7 +142,10 @@ After starting Docker Apache as described below, run:
 ./scripts/smoke-test.sh
 ```
 
+
 The script checks the `HEAD` response, performs a small range request, runs the downloader, compares the downloaded file with the source file, and prints file sizes.
+
+The script expects the local Apache server to be running and the source file to exist at `~/downloader-test/big-file.txt`.
 
 ## Manual test with Docker
 
@@ -192,9 +195,9 @@ Arguments:
 --chunk-size      Size of each byte range in bytes. Default: 1048576
 --parallelism     Number of parallel worker threads. Default: 4
 --max-retries     Number of retry attempts per failed chunk. Default: 3
---max-file-size   Optional maximum allowed file size in bytes
---timeout-seconds  HTTP request timeout in seconds. Default: 30
---dry-run         Validate metadata and print the planned download without creating an output file
+--max-file-size   Optional maximum allowed file size in bytes.
+--timeout-seconds HTTP request timeout in seconds. Default: 30
+--dry-run         Validate metadata and print the planned download without creating an output file.
 ```
 
 ### Dry-run mode
@@ -231,7 +234,7 @@ wc -c ~/downloader-test/big-file.txt cli-downloaded-big-file.txt
 
 ## Error handling
 
-The downloader fails with a `DownloadException` when:
+The CLI exits with an error when:
 
 - the `HEAD` request fails
 - `Content-Length` is missing or invalid
@@ -241,13 +244,13 @@ The downloader fails with a `DownloadException` when:
 - `Content-Range` is missing or does not match the requested range
 - a downloaded chunk has an unexpected size
 - a chunk still fails after all retry attempts
-- the configured maximum file size is invalid
-- the configured HTTP timeout is invalid
+- a configured option value is invalid, such as non-positive `chunkSize`, `parallelism`, `maxFileSize`, or `timeoutSeconds`
 - an invalid CLI argument is provided
 
 ## Current limitations
 
 - The downloader does not resume partially completed downloads.
 - It does not verify checksums against an external expected hash.
+- It does not adapt chunk size automatically based on file size or network behavior.
 - It assumes that the server correctly supports standard HTTP byte ranges.
 - It focuses on correctness, validation, and testability rather than advanced download-manager features.
